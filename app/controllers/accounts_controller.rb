@@ -7,67 +7,79 @@ class AccountsController < ApplicationController
     end
 
     def balance
-        response_hash = Hash.new
-        result = @@initial_data.select {|account| account[:id] == params[:account_id]}
-        unless result.empty?
-            response_hash[:destination] = result[0]
+        @account = params[:account_id]
+        unless valid_account.empty?
+            response = valid_account[0][:balance]
             status_type = 'ok'       
         else
+            response = 0
             status_type = 'not_found'       
         end
-        render json: response_hash, status: status_type.to_sym
-    end
-
-    def check_account
-        @existing_account = @@initial_data.select {|account| account[:id] == @account}
-    end   
-
-    def sum 
-        @existing_account[0][:amount] = @existing_account[0][:amount] + params[:amount]
-        @response_hash[:destination] = @existing_account[0]
-    end
-
-    def substract
-        @existing_account[0][:amount] = @existing_account[0][:amount] - params[:amount]
-        @response_hash[:destination] = @existing_account[0]
+        render json: response, status: status_type.to_sym
     end
 
     def event
         @response_hash = Hash.new
-        @status_type = 'created'         
+        @status_type = 'created'   
+        @account = params[:destination]  
+        @amount = params[:amount]
         case params[:type]
         when 'deposit'
-            @account = params[:destination]
-            if check_account.empty?
-                @@initial_data.push({"id": params[:destination], "amount": params[:amount]})
-                @response_hash[:destination] = {"id": params[:destination], "amount": params[:amount]}
+            if valid_account.empty?
+                @@initial_data.push({"id": params[:destination], "balance": params[:amount]})
+                @response_hash[:destination] = {"id": params[:destination], "balance": params[:amount]}
             else
-                check_account
+                valid_account
                 sum
             end
         when 'withdraw'
-            @account = params[:destination]
-            check_account
-            substract
+           unless valid_account.empty?
+                subtract
+           else
+                @status_type = 'not_found'
+                event_response = 0
+           end
         when "transfer"
-            @account = params[:origin]
-            check_account
-            substract
-            @response_hash[:destination].transform_keys! { |k| k == :amount ? :balance : k }
-            results = @response_hash[:destination]
+            valid_destination = valid_account
             
-            @account = params[:destination]
-            check_account
-            sum
-            results2 = @response_hash[:destination].transform_keys! { |k| k == :amount ? :balance : k }
+            @account = params[:origin] 
+            valid_origin = valid_account
 
-            @response_hash = {}
-            @response_hash[:origin] = results 
-            @response_hash[:destination] = results2
+            unless valid_origin.empty? || valid_destination.empty?
+                subtract
+                @origin = @response_hash[:destination]  
+                @account = params[:destination]
+
+                sum
+                @destination = @response_hash[:destination]
+                
+                @response_hash = {}
+                @response_hash[:origin] = @origin 
+                @response_hash[:destination] = @destination
+            else
+                @status_type = 'not_found'
+                event_response = 0
+            end
         else
             @status_type = 'not_found'
         end
 
-        render json: @response_hash, status: @status_type.to_sym
+        @response_hash.empty? ? @message = event_response : @message = @response_hash
+            
+        render json: @message, status: @status_type.to_sym
+    end
+
+    def valid_account
+        @@initial_data.select {|account| account[:id] == @account}
+    end  
+    
+    def sum
+        valid_account[0][:balance] = valid_account[0][:balance] + @amount
+        @response_hash[:destination] = valid_account[0]
+    end
+
+    def subtract
+        valid_account[0][:balance] = valid_account[0][:balance] - @amount
+        @response_hash[:destination] = valid_account[0]
     end
 end

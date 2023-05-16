@@ -3,8 +3,9 @@ Rails.application.routes.draw do
 
   # Defines the root path route ("/")
   # root "articles#index"
-
-  get '/accounts/reset', to: 'accounts#reset'
-  get '/accounts/balance/:account_id', to: 'accounts#balance'
-  post '/accounts/event', to: 'accounts#event'
+  root to: redirect('/accounts')
+  
+  get '/reset', to: 'accounts#reset'
+  get '/balance/:account_id', to: 'accounts#balance'
+  post '/event', to: 'accounts#event'
 end
