@@ -3,7 +3,7 @@ class AccountsController < ApplicationController
 
     def reset
         @@initial_data = []
-        render status: :ok
+        render json: 'OK', status: :ok
     end
 
     def balance
@@ -21,18 +21,20 @@ class AccountsController < ApplicationController
     def event
         @response_hash = Hash.new
         @status_type = 'created'   
-        @account = params[:destination]  
         @amount = params[:amount]
         case params[:type]
         when 'deposit'
+            @account = params[:destination]  
             if valid_account.empty?
-                @@initial_data.push({"id": params[:destination], "balance": params[:amount]})
-                @response_hash[:destination] = {"id": params[:destination], "balance": params[:amount]}
+                @initial_amount = params[:amount]
+                initial_deposit
+                @response_hash[:destination] = {"id": @account, "balance": @initial_amount}
             else
                 valid_account
                 sum
             end
         when 'withdraw'
+            @account = params[:origin]  
            unless valid_account.empty?
                 subtract
            else
@@ -40,22 +42,29 @@ class AccountsController < ApplicationController
                 event_response = 0
            end
         when "transfer"
-            valid_destination = valid_account
-            
+            @account = params[:destination]  
+        
+            if valid_account.empty?
+                @initial_amount = 0
+                initial_deposit
+            end
+            @valid_destination = valid_account
+
             @account = params[:origin] 
-            valid_origin = valid_account
-
-            unless valid_origin.empty? || valid_destination.empty?
+            @valid_origin = valid_account
+            
+            unless @valid_origin.empty? || @valid_destination.empty?
+                valid_account
                 subtract
-                @origin = @response_hash[:destination]  
-                @account = params[:destination]
+                
+                @origin = @response_hash[:origin]  
 
+                @account = params[:destination]  
+                valid_account 
                 sum
+                
                 @destination = @response_hash[:destination]
                 
-                @response_hash = {}
-                @response_hash[:origin] = @origin 
-                @response_hash[:destination] = @destination
             else
                 @status_type = 'not_found'
                 event_response = 0
@@ -80,6 +89,10 @@ class AccountsController < ApplicationController
 
     def subtract
         valid_account[0][:balance] = valid_account[0][:balance] - @amount
-        @response_hash[:destination] = valid_account[0]
+        @response_hash[:origin] = valid_account[0]
+    end
+
+    def initial_deposit
+        @@initial_data.push({"id": @account, "balance": @initial_amount})
     end
 end
