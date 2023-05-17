@@ -22,15 +22,15 @@ class AccountsController < ApplicationController
         @response_hash = Hash.new
         @status_type = 'created'   
         @amount = params[:amount]
+        @account = params[:destination]  
+
         case params[:type]
         when 'deposit'
-            @account = params[:destination]  
             if valid_account.empty?
                 @initial_amount = params[:amount]
                 initial_deposit
                 @response_hash[:destination] = {"id": @account, "balance": @initial_amount}
             else
-                valid_account
                 sum
             end
         when 'withdraw'
@@ -42,8 +42,6 @@ class AccountsController < ApplicationController
                 event_response = 0
            end
         when "transfer"
-            @account = params[:destination]  
-        
             if valid_account.empty?
                 @initial_amount = 0
                 initial_deposit
@@ -54,17 +52,12 @@ class AccountsController < ApplicationController
             @valid_origin = valid_account
             
             unless @valid_origin.empty? || @valid_destination.empty?
-                valid_account
                 subtract
-                
                 @origin = @response_hash[:origin]  
 
-                @account = params[:destination]  
-                valid_account 
-                sum
-                
-                @destination = @response_hash[:destination]
-                
+                @account = params[:destination]   
+                sum    
+                @destination = @response_hash[:destination]               
             else
                 @status_type = 'not_found'
                 event_response = 0
